@@ -1,0 +1,22 @@
+<svg width="100" height="100" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+  <!-- Pokeball background circle -->
+  <circle cx="50" cy="50" r="48" fill="#f8f8f8" stroke="#333" stroke-width="2"/>
+  
+  <!-- Top half (red) -->
+  <path d="M 2 50 A 48 48 0 0 1 98 50 Z" fill="#e74c3c"/>
+  
+  <!-- Bottom half (white) -->
+  <path d="M 2 50 A 48 48 0 0 0 98 50 Z" fill="#f8f8f8"/>
+  
+  <!-- Center line -->
+  <line x1="2" y1="50" x2="98" y2="50" stroke="#333" stroke-width="3"/>
+  
+  <!-- Center circle (outer) -->
+  <circle cx="50" cy="50" r="12" fill="#f8f8f8" stroke="#333" stroke-width="3"/>
+  
+  <!-- Center circle (inner) -->
+  <circle cx="50" cy="50" r="8" fill="#333"/>
+  
+  <!-- Center highlight -->
+  <circle cx="50" cy="50" r="3" fill="#f8f8f8"/>
+</svg>

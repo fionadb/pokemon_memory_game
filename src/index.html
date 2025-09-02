@@ -1,13 +1,149 @@
-<!doctype html>
-<html lang="en">
+<!DOCTYPE html>
+<html lang="en" ng-app="pokemonMemoryGame">
 <head>
-  <meta charset="utf-8">
-  <title>PokemonMemoryGame</title>
-  <base href="/">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="icon" type="image/x-icon" href="favicon.ico">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pokemon Memory Game</title>
+    <link rel="stylesheet" href="styles/main.css">
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.3/angular.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.6.0/axios.min.js"></script>
 </head>
-<body>
-  <app-root></app-root>
+<body ng-controller="GameController as game">
+    <!-- Fireworks overlay -->
+    <div ng-if="game.showFireworks" class="fireworks-overlay">
+        <div class="firework"></div>
+        <div class="firework"></div>
+        <div class="firework"></div>
+        <div class="firework"></div>
+        <div class="firework"></div>
+    </div>
+
+    <!-- Combo notification -->
+    <div ng-if="game.showCombo" class="combo-notification">
+        <span class="combo-text">🔥 {{game.comboCount}}x COMBO! 🔥</span>
+    </div>
+
+    <!-- Funny message display -->
+    <div ng-if="game.getCurrentMessage()" class="funny-message">
+        {{game.getCurrentMessage()}}
+    </div>
+
+    <div class="game-container">
+        <header class="game-header">
+            <h1>🎮 Pokemon Memory Game 🎮</h1>
+            <div class="game-controls">
+                <div class="control-group">
+                    <label>Grid Size:</label>
+                    <select ng-model="game.gridSize" ng-change="game.resetGame()">
+                        <option value="4">4x4 (Easy)</option>
+                        <option value="6">6x6 (Medium)</option>
+                        <option value="8">8x8 (Hard)</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label>Players:</label>
+                    <select ng-model="game.playerCount" ng-change="game.resetGame()">
+                        <option value="1">1 Player</option>
+                        <option value="2">2 Players</option>
+                    </select>
+                </div>
+                <button ng-click="game.resetGame()" class="reset-btn">🎲 New Game</button>
+            </div>
+        </header>
+
+        <div class="game-info">
+            <div class="score-board">
+                <div class="player-score" ng-repeat="player in game.players track by $index" 
+                     ng-class="{'active': $index === game.currentPlayer}">
+                    <span class="player-name">
+                        <span ng-if="$index === 0">🥇</span>
+                        <span ng-if="$index === 1">🥈</span>
+                        Player {{$index + 1}}
+                    </span>
+                    <span class="score">{{player.score}} ⭐</span>
+                </div>
+            </div>
+            <div class="game-stats">
+                <span>🎯 Moves: {{game.moves}}</span>
+                <span>⏱️ Time: {{game.formatTime(game.elapsedTime)}}</span>
+                <span ng-if="game.comboCount > 1">🔥 Combo: {{game.comboCount}}x</span>
+            </div>
+        </div>
+
+        <div class="game-board" ng-style="{'grid-template-columns': 'repeat(' + game.gridSize + ', 1fr)'}">
+            <div ng-repeat="card in game.cards track by $index" 
+                 class="card" 
+                 ng-class="{
+                     'flipped': card.isFlipped, 
+                     'matched': card.isMatched,
+                     'shaking': card.isShaking,
+                     'match-effect': card.showMatchEffect
+                 }"
+                 ng-click="game.flipCard($index)"
+                 ng-style="card.isMatched && {'border-color': game.getTypeColor(card.pokemon)}">
+                <div class="card-inner">
+                    <div class="card-front">
+                        <img src="assets/pokeball.svg" alt="Card back" class="card-back-img">
+                        <div class="pokeball-shine"></div>
+                    </div>
+                    <div class="card-back" ng-style="{'background': 'linear-gradient(135deg, ' + game.getTypeColor(card.pokemon) + ', #667eea)'}">
+                        <img ng-src="{{game.getCardImage(card)}}" alt="{{card.pokemon.name}}" class="pokemon-img">
+                        <span class="pokemon-name">{{card.pokemon.name}}</span>
+                        <div class="pokemon-types">
+                            <span ng-repeat="type in card.pokemon.types" class="type-badge" ng-style="{'background-color': game.getTypeColor({types: [type]})}" >
+                                {{type}}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Match sparkles -->
+                <div ng-if="card.showMatchEffect" class="match-sparkles">
+                    <div class="sparkle sparkle-1">✨</div>
+                    <div class="sparkle sparkle-2">⭐</div>
+                    <div class="sparkle sparkle-3">💫</div>
+                    <div class="sparkle sparkle-4">🌟</div>
+                </div>
+            </div>
+        </div>
+
+        <div ng-if="game.gameWon" class="game-over-modal">
+            <div class="modal-content celebration">
+                <div class="trophy-animation">🏆</div>
+                <h2>{{game.getCurrentMessage()}}</h2>
+                <div ng-if="game.playerCount === 1" class="victory-stats">
+                    <p>🎯 Completed in {{game.moves}} moves!</p>
+                    <p>⏱️ Time: {{game.formatTime(game.elapsedTime)}}</p>
+                    <p ng-if="game.moves <= game.gridSize">🔥 PERFECT! Minimum moves achieved!</p>
+                    <p ng-if="game.elapsedTime < 60">⚡ LIGHTNING FAST! Under 1 minute!</p>
+                </div>
+                <div ng-if="game.playerCount === 2" class="victory-stats">
+                    <div class="winner-announcement">
+                        <p ng-if="game.players[0].score > game.players[1].score">🥇 Player 1 Wins! 🎉</p>
+                        <p ng-if="game.players[1].score > game.players[0].score">🥇 Player 2 Wins! 🎉</p>
+                        <p ng-if="game.players[0].score === game.players[1].score">🤝 It's a Tie! Amazing!</p>
+                    </div>
+                    <p>📊 Final Score: Player 1: {{game.players[0].score}} ⭐ - Player 2: {{game.players[1].score}} ⭐</p>
+                </div>
+                <button ng-click="game.resetGame()" class="play-again-btn">🚀 Play Again</button>
+            </div>
+        </div>
+
+        <div ng-if="game.loading" class="loading-modal">
+            <div class="loading-content">
+                <div class="pokeball-loader">
+                    <div class="pokeball-top"></div>
+                    <div class="pokeball-bottom"></div>
+                    <div class="pokeball-center"></div>
+                </div>
+                <p>🔍 Catching Pokemon...</p>
+                <div class="loading-dots">
+                    <span>.</span><span>.</span><span>.</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
 </body>
 </html>
