@@ -17,10 +17,13 @@ interface Card {
     id: number;
     isShaking?: boolean;
     showMatchEffect?: boolean;
+    isPowerUp?: boolean;
 }
 
 interface Player {
     score: number;
+    streak: number;
+    powerUps: number;
 }
 
 class GameController {
@@ -39,32 +42,63 @@ class GameController {
     public lastMatchedPokemon: string = '';
     public comboCount: number = 0;
     public showCombo: boolean = false;
+    public streakCount: number = 0;
+    public showStreak: boolean = false;
+    public currentMessage: string = '';
+    public messageTimeout: any;
+    public perfectGameBonus: boolean = false;
+    public speedBonus: boolean = false;
     private gameTimer: any;
     private audioContext: AudioContext | null = null;
 
     private funnyMessages = {
         match: [
-            "🎉 Gotcha! That's a match!",
-            "⚡ Electric! You caught 'em both!",
-            "🔥 Fire move! Perfect match!",
-            "💫 Stellar! Two of a kind!",
-            "🌟 Amazing! You're a Pokemon Master!",
-            "🎯 Bullseye! Match found!",
-            "🚀 Blast off! Another match!"
+            "🎉 Gotcha! That's a perfect match!",
+            "⚡ Electric connection! You caught them both!",
+            "🔥 Fire move! Absolutely blazing!",
+            "💫 Stellar! Two peas in a Pokeball!",
+            "🌟 Amazing! You're becoming a legend!",
+            "🎯 Bullseye! Pokemon trainer skills activated!",
+            "🚀 Blast off! Another fantastic match!",
+            "💎 Diamond tier! Incredible memory!",
+            "🎪 Spectacular! The crowd goes wild!",
+            "🌈 Rainbow power! Perfect harmony!"
         ],
         noMatch: [
-            "💭 Hmm... not quite right!",
-            "🤔 Close, but no Pokeball!",
-            "😅 Oops! Try again, trainer!",
-            "🎪 Almost! Keep trying!",
-            "🎲 Nope! Roll again!",
-            "🌪️ Whiff! Better luck next time!"
+            "💭 Hmm... not quite right, trainer!",
+            "🤔 Close, but no Pokeball this time!",
+            "😅 Oops! Even masters make mistakes!",
+            "🎪 Almost! The suspense is killing me!",
+            "🎲 Nope! Roll those dice again!",
+            "🌪️ Whiff! Better luck next flip!",
+            "🤷 Whoopsie! Try a different approach!",
+            "🎭 Plot twist! Not the match we expected!",
+            "🎨 Mix and match... well, just mix for now!",
+            "🧩 Puzzle piece doesn't fit yet!"
+        ],
+        streak: [
+            "🔥 ON FIRE! {count} matches in a row!",
+            "⚡ LIGHTNING STREAK! {count} consecutive wins!",
+            "🌟 UNSTOPPABLE! {count} match combo!",
+            "🚀 ROCKET POWERED! {count} perfect moves!",
+            "💫 COSMIC! {count} stellar matches!",
+            "🎯 SHARPSHOOTER! {count} bullseyes!",
+            "👑 ROYAL! {count} majestic matches!"
         ],
         gameWon: [
-            "🏆 CHAMPION! You caught 'em all!",
-            "👑 LEGENDARY! You're the very best!",
-            "🎊 MAGNIFICENT! Pokemon Master achieved!",
-            "⭐ OUTSTANDING! Gotta catch 'em all - DONE!"
+            "🏆 CHAMPION! You caught 'em all like a true master!",
+            "👑 LEGENDARY! You're the very best, like no one ever was!",
+            "🎊 MAGNIFICENT! Pokemon Master status achieved!",
+            "⭐ OUTSTANDING! Gotta catch 'em all - MISSION COMPLETE!",
+            "🎉 PHENOMENAL! Professor Oak would be so proud!",
+            "🌟 INCREDIBLE! You've become a Pokemon legend!",
+            "💎 FLAWLESS! A performance worthy of the Hall of Fame!"
+        ],
+        powerUp: [
+            "💥 POWER-UP ACTIVATED! Double vision mode!",
+            "⚡ ELECTRIC BOOST! Cards revealed briefly!",
+            "🔮 MYSTIC SIGHT! Peek into the future!",
+            "🌟 STAR POWER! Extra hint incoming!"
         ]
     };
 
@@ -102,9 +136,20 @@ class GameController {
     }
 
     private playMatchSound(): void {
+        // Enhanced match sound with harmony
         this.playSound(523, 0.1);
+        this.playSound(659, 0.1);
         setTimeout(() => this.playSound(659, 0.1), 100);
         setTimeout(() => this.playSound(784, 0.2), 200);
+        setTimeout(() => this.playSound(1047, 0.15), 300);
+    }
+
+    private playStreakSound(): void {
+        // Special streak sound
+        const notes = [440, 523, 659, 784, 880];
+        notes.forEach((note, index) => {
+            setTimeout(() => this.playSound(note, 0.1, 'triangle'), index * 50);
+        });
     }
 
     private playNoMatchSound(): void {
@@ -113,10 +158,29 @@ class GameController {
     }
 
     private playVictorySound(): void {
-        const notes = [523, 659, 784, 1047];
-        notes.forEach((note, index) => {
-            setTimeout(() => this.playSound(note, 0.3), index * 100);
+        // Epic victory fanfare
+        const melody = [523, 659, 784, 1047, 1319, 1047, 784, 1047];
+        melody.forEach((note, index) => {
+            setTimeout(() => this.playSound(note, 0.3), index * 150);
         });
+    }
+
+    private playPowerUpSound(): void {
+        // Rising power-up sound
+        for (let i = 0; i < 8; i++) {
+            setTimeout(() => this.playSound(400 + (i * 100), 0.1, 'triangle'), i * 50);
+        }
+    }
+
+    private showMessage(message: string, duration: number = 3000): void {
+        this.currentMessage = message;
+        if (this.messageTimeout) {
+            this.$timeout.cancel(this.messageTimeout);
+        }
+        this.messageTimeout = this.$timeout(() => {
+            this.currentMessage = '';
+            this.$scope.$apply();
+        }, duration);
     }
 
     private showMatchEffect(index1: number, index2: number): void {
@@ -138,15 +202,53 @@ class GameController {
         }, 600);
     }
 
-    private getRandomMessage(type: 'match' | 'noMatch' | 'gameWon'): string {
+    private getRandomMessage(type: 'match' | 'noMatch' | 'gameWon' | 'streak' | 'powerUp', params?: any): string {
         const messages = this.funnyMessages[type];
-        return messages[Math.floor(Math.random() * messages.length)];
+        let message = messages[Math.floor(Math.random() * messages.length)];
+        
+        if (type === 'streak' && params?.count) {
+            message = message.replace('{count}', params.count);
+        }
+        
+        return message;
+    }
+
+    private addPowerUpCard(): void {
+        // Add power-up card randomly (10% chance per pair)
+        if (Math.random() < 0.1 && this.cards.length > 4) {
+            const randomIndex = Math.floor(Math.random() * this.cards.length);
+            if (!this.cards[randomIndex].isPowerUp) {
+                this.cards[randomIndex].isPowerUp = true;
+            }
+        }
+    }
+
+    private activatePowerUp(): void {
+        this.players[this.currentPlayer].powerUps++;
+        this.playPowerUpSound();
+        this.showMessage(this.getRandomMessage('powerUp'));
+        
+        // Briefly reveal all cards
+        this.cards.forEach(card => {
+            if (!card.isMatched && !card.isFlipped) {
+                card.isFlipped = true;
+            }
+        });
+
+        this.$timeout(() => {
+            this.cards.forEach(card => {
+                if (!card.isMatched && card.isFlipped && !this.flippedCards.includes(this.cards.indexOf(card))) {
+                    card.isFlipped = false;
+                }
+            });
+            this.$scope.$apply();
+        }, 1000);
     }
 
     private initializePlayers(): void {
         this.players = [];
         for (let i = 0; i < this.playerCount; i++) {
-            this.players.push({ score: 0 });
+            this.players.push({ score: 0, streak: 0, powerUps: 0 });
         }
         this.currentPlayer = 0;
     }
@@ -160,13 +262,19 @@ class GameController {
         this.cards = [];
         this.showFireworks = false;
         this.comboCount = 0;
+        this.streakCount = 0;
+        this.currentMessage = '';
+        this.perfectGameBonus = false;
+        this.speedBonus = false;
 
         this.initializePlayers();
 
         try {
             await this.loadPokemonCards();
             this.shuffleCards();
+            this.addPowerUpCard();
             this.startTimer();
+            this.showMessage("🎮 Game started! Find matching Pokemon pairs! 🎮");
         } catch (error) {
             console.error('Error loading Pokemon cards:', error);
         } finally {
@@ -215,24 +323,28 @@ class GameController {
     private async fetchPokemon(id: number): Promise<Pokemon> {
         try {
             const response = await axios.get(`https://pokeapi.co/api/v2/pokemon/${id}`);
-            const speciesResponse = await axios.get(response.data.species.url);
-
+            
+            // Get artwork URL with better fallback handling
+            const artworkUrl = response.data.sprites.other?.['official-artwork']?.front_default;
+            const spriteUrl = response.data.sprites.front_default;
+            
             return {
                 id: response.data.id,
                 name: response.data.name,
-                sprite: response.data.sprites.front_default,
-                artwork: response.data.sprites.other['official-artwork'].front_default || response.data.sprites.front_default,
+                sprite: spriteUrl || `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${id}.png`,
+                artwork: artworkUrl || spriteUrl || `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${id}.png`,
                 types: response.data.types.map((type: any) => type.type.name),
                 cry: `https://raw.githubusercontent.com/PokeAPI/cries/main/cries/pokemon/latest/${id}.ogg`
             };
         } catch (error) {
             console.error(`Error fetching Pokemon ${id}:`, error);
+            // Return a fallback Pokemon with working image URLs
             return {
                 id: id,
-                name: `Mystery Pokemon ${id}`,
+                name: `Pokemon ${id}`,
                 sprite: `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${id}.png`,
                 artwork: `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${id}.png`,
-                types: ['unknown']
+                types: ['normal']
             };
         }
     }
@@ -248,6 +360,13 @@ class GameController {
         const card = this.cards[index];
 
         if (card.isFlipped || card.isMatched || this.flippedCards.length >= 2) {
+            return;
+        }
+
+        // Check for power-up activation
+        if (card.isPowerUp && !card.isMatched) {
+            this.activatePowerUp();
+            card.isPowerUp = false;
             return;
         }
 
@@ -271,11 +390,27 @@ class GameController {
             card1.isMatched = true;
             card2.isMatched = true;
             this.players[this.currentPlayer].score++;
+            this.players[this.currentPlayer].streak++;
             this.comboCount++;
+            this.streakCount++;
             this.lastMatchedPokemon = card1.pokemon.name;
 
             this.playMatchSound();
             this.showMatchEffect(index1, index2);
+
+            // Enhanced messages based on performance
+            let matchMessage = this.getRandomMessage('match');
+            if (this.streakCount >= 3) {
+                this.playStreakSound();
+                matchMessage = this.getRandomMessage('streak', { count: this.streakCount });
+                this.showStreak = true;
+                this.$timeout(() => {
+                    this.showStreak = false;
+                    this.$scope.$apply();
+                }, 2500);
+            }
+
+            this.showMessage(`${matchMessage} - ${card1.pokemon.name.toUpperCase()} matched!`);
 
             if (this.comboCount > 1) {
                 this.showCombo = true;
@@ -285,9 +420,11 @@ class GameController {
                 }, 2000);
             }
 
+            // Check for game completion
             if (this.cards.every(card => card.isMatched)) {
                 this.gameWon = true;
                 this.stopTimer();
+                this.calculateBonuses();
                 this.showFireworks = true;
                 this.playVictorySound();
 
@@ -297,10 +434,17 @@ class GameController {
                 }, 5000);
             }
         } else {
+            // Reset streaks on mismatch
+            this.players[this.currentPlayer].streak = 0;
             this.comboCount = 0;
+            this.streakCount = 0;
+            
             this.playNoMatchSound();
             this.shakeCard(index1);
             this.shakeCard(index2);
+            
+            const noMatchMessage = this.getRandomMessage('noMatch');
+            this.showMessage(`${noMatchMessage} - ${card1.pokemon.name} ≠ ${card2.pokemon.name}`);
 
             this.$timeout(() => {
                 card1.isFlipped = false;
@@ -310,11 +454,24 @@ class GameController {
                     this.currentPlayer = (this.currentPlayer + 1) % 2;
                 }
                 this.$scope.$apply();
-            }, 300);
+            }, 1200);
         }
 
         this.flippedCards = [];
         this.$scope.$apply();
+    }
+
+    private calculateBonuses(): void {
+        const minimumMoves = this.gridSize * this.gridSize / 2;
+        this.perfectGameBonus = this.moves <= minimumMoves;
+        this.speedBonus = this.elapsedTime < 60;
+        
+        if (this.perfectGameBonus) {
+            this.players[this.currentPlayer].score += 5;
+        }
+        if (this.speedBonus) {
+            this.players[this.currentPlayer].score += 3;
+        }
     }
 
     private startTimer(): void {
@@ -339,7 +496,22 @@ class GameController {
     }
 
     public getCardImage(card: Card): string {
-        return card.isFlipped ? card.pokemon.artwork : card.pokemon.sprite;
+        if (card.isFlipped) {
+            // Use artwork if available, fallback to sprite, then to a default image
+            return card.pokemon.artwork || card.pokemon.sprite || `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${card.pokemon.id}.png`;
+        }
+        return 'assets/pokeball.svg';
+    }
+
+    public handleImageError(event: any, card: Card): void {
+        console.warn(`Image failed to load for ${card.pokemon.name}, using fallback`);
+        // Fallback to sprite if artwork fails
+        if (event.target.src === card.pokemon.artwork) {
+            event.target.src = card.pokemon.sprite;
+        } else {
+            // If sprite also fails, use direct GitHub URL
+            event.target.src = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${card.pokemon.id}.png`;
+        }
     }
 
     public getTypeColor(pokemon: Pokemon): string {
@@ -368,12 +540,26 @@ class GameController {
     }
 
     public getCurrentMessage(): string {
+        if (this.currentMessage) {
+            return this.currentMessage;
+        }
         if (this.gameWon) {
-            return this.getRandomMessage('gameWon');
+            let message = this.getRandomMessage('gameWon');
+            if (this.perfectGameBonus && this.speedBonus) {
+                message += " 🌟 PERFECT + SPEED BONUS! 🌟";
+            } else if (this.perfectGameBonus) {
+                message += " 💎 PERFECT GAME BONUS! 💎";
+            } else if (this.speedBonus) {
+                message += " ⚡ SPEED BONUS! ⚡";
+            }
+            return message;
         }
-        if (this.lastMatchedPokemon && this.comboCount > 0) {
-            return this.getRandomMessage('match').replace('match', `${this.lastMatchedPokemon} match`);
-        }
+        return '';
+    }
+
+    public getStreakMessage(): string {
+        if (this.streakCount >= 5) return `🔥 LEGENDARY ${this.streakCount}x STREAK! 🔥`;
+        if (this.streakCount >= 3) return `⚡ ${this.streakCount}x STREAK! ⚡`;
         return '';
     }
 }

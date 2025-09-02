@@ -23,9 +23,18 @@
         <span class="combo-text">🔥 {{game.comboCount}}x COMBO! 🔥</span>
     </div>
 
-    <!-- Funny message display -->
-    <div ng-if="game.getCurrentMessage()" class="funny-message">
-        {{game.getCurrentMessage()}}
+    <!-- Streak notification -->
+    <div ng-if="game.showStreak" class="streak-notification">
+        <span class="streak-text">{{game.getStreakMessage()}}</span>
+    </div>
+
+    <!-- Enhanced message display -->
+    <div ng-if="game.getCurrentMessage()" class="message-display" ng-class="{'victory-message': game.gameWon}">
+        <div class="message-content">
+            <span class="message-icon" ng-if="!game.gameWon">🎮</span>
+            <span class="message-icon" ng-if="game.gameWon">🏆</span>
+            <span class="message-text">{{game.getCurrentMessage()}}</span>
+        </div>
     </div>
 
     <div class="game-container">
@@ -61,12 +70,17 @@
                         Player {{$index + 1}}
                     </span>
                     <span class="score">{{player.score}} ⭐</span>
+                    <div class="player-stats">
+                        <span ng-if="player.streak > 0" class="streak-indicator">🔥 {{player.streak}}</span>
+                        <span ng-if="player.powerUps > 0" class="powerup-indicator">⚡ {{player.powerUps}}</span>
+                    </div>
                 </div>
             </div>
             <div class="game-stats">
                 <span>🎯 Moves: {{game.moves}}</span>
                 <span>⏱️ Time: {{game.formatTime(game.elapsedTime)}}</span>
                 <span ng-if="game.comboCount > 1">🔥 Combo: {{game.comboCount}}x</span>
+                <span ng-if="game.streakCount > 0" class="streak-display">⚡ Streak: {{game.streakCount}}</span>
             </div>
         </div>
 
@@ -77,7 +91,8 @@
                      'flipped': card.isFlipped, 
                      'matched': card.isMatched,
                      'shaking': card.isShaking,
-                     'match-effect': card.showMatchEffect
+                     'match-effect': card.showMatchEffect,
+                     'power-up': card.isPowerUp
                  }"
                  ng-click="game.flipCard($index)"
                  ng-style="card.isMatched && {'border-color': game.getTypeColor(card.pokemon)}">
@@ -85,9 +100,14 @@
                     <div class="card-front">
                         <img src="assets/pokeball.svg" alt="Card back" class="card-back-img">
                         <div class="pokeball-shine"></div>
+                        <!-- Power-up indicator -->
+                        <div ng-if="card.isPowerUp" class="power-up-glow">⚡</div>
                     </div>
                     <div class="card-back" ng-style="{'background': 'linear-gradient(135deg, ' + game.getTypeColor(card.pokemon) + ', #667eea)'}">
-                        <img ng-src="{{game.getCardImage(card)}}" alt="{{card.pokemon.name}}" class="pokemon-img">
+                        <img ng-src="{{game.getCardImage(card)}}" 
+                             alt="{{card.pokemon.name}}" 
+                             class="pokemon-img"
+                             ng-error="game.handleImageError($event, card)">
                         <span class="pokemon-name">{{card.pokemon.name}}</span>
                         <div class="pokemon-types">
                             <span ng-repeat="type in card.pokemon.types" class="type-badge" ng-style="{'background-color': game.getTypeColor({types: [type]})}" >
@@ -114,8 +134,9 @@
                 <div ng-if="game.playerCount === 1" class="victory-stats">
                     <p>🎯 Completed in {{game.moves}} moves!</p>
                     <p>⏱️ Time: {{game.formatTime(game.elapsedTime)}}</p>
-                    <p ng-if="game.moves <= game.gridSize">🔥 PERFECT! Minimum moves achieved!</p>
-                    <p ng-if="game.elapsedTime < 60">⚡ LIGHTNING FAST! Under 1 minute!</p>
+                    <p ng-if="game.perfectGameBonus">💎 PERFECT! Minimum moves achieved! (+5 ⭐)</p>
+                    <p ng-if="game.speedBonus">⚡ LIGHTNING FAST! Speed bonus! (+3 ⭐)</p>
+                    <p ng-if="game.players[0].powerUps > 0">⚡ Power-ups used: {{game.players[0].powerUps}}</p>
                 </div>
                 <div ng-if="game.playerCount === 2" class="victory-stats">
                     <div class="winner-announcement">
@@ -124,6 +145,10 @@
                         <p ng-if="game.players[0].score === game.players[1].score">🤝 It's a Tie! Amazing!</p>
                     </div>
                     <p>📊 Final Score: Player 1: {{game.players[0].score}} ⭐ - Player 2: {{game.players[1].score}} ⭐</p>
+                    <div class="player-stats-final">
+                        <p>🔥 Player 1 Best Streak: {{game.players[0].streak}}</p>
+                        <p>🔥 Player 2 Best Streak: {{game.players[1].streak}}</p>
+                    </div>
                 </div>
                 <button ng-click="game.resetGame()" class="play-again-btn">🚀 Play Again</button>
             </div>
