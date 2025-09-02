@@ -68,7 +68,7 @@
                     <span class="player-name">
                         <span ng-if="$index === 0">🥇</span>
                         <span ng-if="$index === 1">🥈</span>
-                        Player {{$index + 1}}
+                        {{game.getPlayerDisplayName($index)}}
                     </span>
                     <span class="score">{{player.score}} ⭐</span>
                     <div class="player-stats">
@@ -128,6 +128,7 @@
             </div>
         </div>
 
+        <!-- Game Over Modal -->
         <div ng-if="game.gameWon" class="game-over-modal">
             <div class="modal-content celebration">
                 <div class="trophy-animation">🏆</div>
@@ -141,20 +142,21 @@
                 </div>
                 <div ng-if="game.playerCount === 2" class="victory-stats">
                     <div class="winner-announcement">
-                        <p ng-if="game.players[0].score > game.players[1].score">🥇 Player 1 Wins! 🎉</p>
-                        <p ng-if="game.players[1].score > game.players[0].score">🥇 Player 2 Wins! 🎉</p>
+                        <p ng-if="game.players[0].score > game.players[1].score">🥇 {{game.getPlayerDisplayName(0)}} Wins! 🎉</p>
+                        <p ng-if="game.players[1].score > game.players[0].score">🥇 {{game.getPlayerDisplayName(1)}} Wins! 🎉</p>
                         <p ng-if="game.players[0].score === game.players[1].score">🤝 It's a Tie! Amazing!</p>
                     </div>
-                    <p>📊 Final Score: Player 1: {{game.players[0].score}} ⭐ - Player 2: {{game.players[1].score}} ⭐</p>
+                    <p>📊 Final Score: {{game.getPlayerDisplayName(0)}}: {{game.players[0].score}} ⭐ - {{game.getPlayerDisplayName(1)}}: {{game.players[1].score}} ⭐</p>
                     <div class="player-stats-final">
-                        <p>🔥 Player 1 Best Streak: {{game.players[0].streak}}</p>
-                        <p>🔥 Player 2 Best Streak: {{game.players[1].streak}}</p>
+                        <p>🔥 {{game.getPlayerDisplayName(0)}} Best Streak: {{game.players[0].streak}}</p>
+                        <p>🔥 {{game.getPlayerDisplayName(1)}} Best Streak: {{game.players[1].streak}}</p>
                     </div>
                 </div>
                 <button ng-click="game.resetGame()" class="play-again-btn">🚀 Play Again</button>
             </div>
         </div>
 
+        <!-- Loading Modal -->
         <div ng-if="game.loading" class="loading-modal">
             <div class="loading-content">
                 <div class="pokeball-loader">
