@@ -1,0 +1,67 @@
+<div class="game-container">
+  
+  <!-- Game Settings Screen -->
+  <div *ngIf="!gameStarted" class="settings-screen">
+    <app-game-settings 
+      (settingsChanged)="onSettingsChanged($event)"
+      (startGame)="onStartGame()">
+    </app-game-settings>
+  </div>
+
+  <!-- Loading Screen -->
+  <div *ngIf="isLoading" class="loading-screen">
+    <div class="loading-spinner"></div>
+    <p>Loading Pokemon...</p>
+  </div>
+
+  <!-- Game Board -->
+  <div *ngIf="gameStarted && !isLoading && gameState" class="game-area">
+    
+    <!-- Game Info -->
+    <div class="game-info">
+      <div class="score-board">
+        <div *ngIf="gameState.playerScores.length === 1" class="single-player-info">
+          <h3>Moves: {{gameState.moves}}</h3>
+          <h3>Matched Pairs: {{gameState.matchedPairs}} / {{gameState.cards.length / 2}}</h3>
+        </div>
+        
+        <div *ngIf="gameState.playerScores.length === 2" class="multi-player-info">
+          <div class="player-score" [class.active-player]="gameState.currentPlayer === 1">
+            <h3>Player 1: {{gameState.playerScores[0]}}</h3>
+          </div>
+          <div class="game-stats">
+            <p>Moves: {{gameState.moves}}</p>
+            <p>Pairs Left: {{(gameState.cards.length / 2) - gameState.matchedPairs}}</p>
+          </div>
+          <div class="player-score" [class.active-player]="gameState.currentPlayer === 2">
+            <h3>Player 2: {{gameState.playerScores[1]}}</h3>
+          </div>
+        </div>
+      </div>
+
+      <div class="game-controls">
+        <button class="control-btn" (click)="onResetGame()">Reset Game</button>
+        <button class="control-btn" (click)="onNewGame()">New Game</button>
+      </div>
+    </div>
+
+    <!-- Cards Grid -->
+    <div class="cards-grid" [ngClass]="getGridClass()">
+      <app-card 
+        *ngFor="let card of gameState.cards; trackBy: trackByCardId"
+        [card]="card"
+        (cardClicked)="onCardClicked($event)">
+      </app-card>
+    </div>
+
+    <!-- Win Screen -->
+    <div *ngIf="gameState.isGameWon" class="win-screen">
+      <div class="win-content">
+        <h2>🎉 {{getWinner()}} 🎉</h2>
+        <p>Total Moves: {{gameState.moves}}</p>
+        <button class="play-again-btn" (click)="onNewGame()">Play Again</button>
+      </div>
+    </div>
+
+  </div>
+</div>

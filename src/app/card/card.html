@@ -1,0 +1,19 @@
+<div class="card" 
+     [class.flipped]="card.isFlipped || card.isMatched"
+     [class.matched]="card.isMatched"
+     (click)="onCardClick()">
+  <div class="card-inner">
+    <div class="card-front">
+      <div class="pokeball">
+        <div class="pokeball-top"></div>
+        <div class="pokeball-middle"></div>
+        <div class="pokeball-bottom"></div>
+        <div class="pokeball-button"></div>
+      </div>
+    </div>
+    <div class="card-back">
+      <img [src]="card.imageUrl" [alt]="card.name" />
+      <div class="card-name">{{card.name | titlecase}}</div>
+    </div>
+  </div>
+</div>

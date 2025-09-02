@@ -1,0 +1,23 @@
+<div class="game-settings">
+  <h2>Pokemon Memory Game</h2>
+  
+  <div class="settings-group">
+    <label for="gridSize">Grid Size:</label>
+    <select id="gridSize" [(ngModel)]="gridSize" (change)="onSettingsChange()">
+      <option *ngFor="let option of gridSizeOptions" [value]="option.value">
+        {{option.label}}
+      </option>
+    </select>
+  </div>
+
+  <div class="settings-group">
+    <label for="numberOfPlayers">Number of Players:</label>
+    <select id="numberOfPlayers" [(ngModel)]="numberOfPlayers" (change)="onSettingsChange()">
+      <option *ngFor="let option of playerOptions" [value]="option.value">
+        {{option.label}}
+      </option>
+    </select>
+  </div>
+
+  <button class="start-button" (click)="onStartGame()">Start Game</button>
+</div>
