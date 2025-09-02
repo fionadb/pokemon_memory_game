@@ -8,7 +8,7 @@
     <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.3/angular.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.6.0/axios.min.js"></script>
 </head>
-<body ng-controller="GameController as game">
+<body ng-controller="GameController as game" ng-class="{'game-won': game.gameWon}">
     <!-- Fireworks overlay -->
     <div ng-if="game.showFireworks" class="fireworks-overlay">
         <div class="firework"></div>
@@ -43,7 +43,7 @@
             <div class="game-controls">
                 <div class="control-group">
                     <label>Grid Size:</label>
-                    <select ng-model="game.gridSize" ng-change="game.resetGame()">
+                    <select ng-model="game.gridSize" ng-change="game.onGridSizeChange()">
                         <option value="4">4x4 (Easy)</option>
                         <option value="6">6x6 (Medium)</option>
                         <option value="8">8x8 (Hard)</option>
@@ -51,12 +51,13 @@
                 </div>
                 <div class="control-group">
                     <label>Players:</label>
-                    <select ng-model="game.playerCount" ng-change="game.resetGame()">
+                    <select ng-model="game.playerCount" ng-change="game.onPlayerCountChange()">
                         <option value="1">1 Player</option>
                         <option value="2">2 Players</option>
                     </select>
                 </div>
                 <button ng-click="game.resetGame()" class="reset-btn">🎲 New Game</button>
+                <button ng-click="game.toggleLeaderboard()" class="leaderboard-btn">🏆 Leaderboard</button>
             </div>
         </header>
 
@@ -164,6 +165,109 @@
                 <p>🔍 Catching Pokemon...</p>
                 <div class="loading-dots">
                     <span>.</span><span>.</span><span>.</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Player Name Input Modal -->
+        <div ng-if="game.showNameInput" class="name-input-modal">
+            <div class="modal-content name-input-content">
+                <h2>🎮 Enter Player Names</h2>
+                <div class="name-inputs">
+                    <div ng-repeat="name in game.tempPlayerNames track by $index" class="name-input-group">
+                        <label>Player {{$index + 1}} Name:</label>
+                        <input type="text" 
+                               ng-model="game.tempPlayerNames[$index]" 
+                               placeholder="Enter name (optional)"
+                               class="name-input"
+                               maxlength="20">
+                    </div>
+                </div>
+                <div class="name-input-buttons">
+                    <button ng-click="game.confirmPlayerNames()" class="confirm-btn">✅ Start Game</button>
+                    <button ng-click="game.cancelNameInput()" class="cancel-btn">❌ Cancel</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Leaderboard Modal -->
+        <div ng-if="game.showLeaderboard" class="leaderboard-modal">
+            <div class="modal-content leaderboard-content">
+                <div class="leaderboard-header">
+                    <h2>🏆 Leaderboard</h2>
+                    <button ng-click="game.toggleLeaderboard()" class="close-btn">❌</button>
+                </div>
+                
+                <div class="leaderboard-tabs">
+                    <button ng-click="game.currentLeaderboardTab = 'current'" 
+                            ng-class="{'active': game.currentLeaderboardTab !== 'all'}"
+                            class="tab-btn">
+                        Current Difficulty ({{game.getDifficultyName()}})
+                    </button>
+                    <button ng-click="game.currentLeaderboardTab = 'all'" 
+                            ng-class="{'active': game.currentLeaderboardTab === 'all'}"
+                            class="tab-btn">
+                        All Difficulties
+                    </button>
+                </div>
+
+                <div class="leaderboard-list" ng-if="game.currentLeaderboardTab !== 'all'">
+                    <div ng-if="game.getLeaderboardForCurrentDifficulty().length === 0" class="no-scores">
+                        🎯 No scores yet! Be the first to complete this difficulty!
+                    </div>
+                    <div ng-repeat="entry in game.getLeaderboardForCurrentDifficulty() track by $index" 
+                         class="leaderboard-entry"
+                         ng-class="{'top-score': $index === 0, 'recent-score': $index < 3}">
+                        <div class="rank">
+                            <span ng-if="$index === 0">🥇</span>
+                            <span ng-if="$index === 1">🥈</span>
+                            <span ng-if="$index === 2">🥉</span>
+                            <span ng-if="$index > 2">{{$index + 1}}</span>
+                        </div>
+                        <div class="player-info">
+                            <div class="player-name">{{entry.name}}</div>
+                            <div class="player-details">
+                                {{entry.difficulty}} • {{entry.date}}
+                            </div>
+                        </div>
+                        <div class="stats">
+                            <div class="score">{{entry.score}} ⭐</div>
+                            <div class="time">⏱️ {{game.formatLeaderboardTime(entry.time)}}</div>
+                            <div class="moves">🎯 {{entry.moves}} moves</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="leaderboard-list" ng-if="game.currentLeaderboardTab === 'all'">
+                    <div ng-if="game.getAllLeaderboard().length === 0" class="no-scores">
+                        🎯 No scores yet! Start playing to see your achievements!
+                    </div>
+                    <div ng-repeat="entry in game.getAllLeaderboard() track by $index" 
+                         class="leaderboard-entry"
+                         ng-class="{'top-score': $index === 0}">
+                        <div class="rank">
+                            <span ng-if="$index === 0">🏆</span>
+                            <span ng-if="$index > 0">{{$index + 1}}</span>
+                        </div>
+                        <div class="player-info">
+                            <div class="player-name">{{entry.name}}</div>
+                            <div class="player-details">
+                                {{entry.difficulty}} • {{entry.date}}
+                            </div>
+                        </div>
+                        <div class="stats">
+                            <div class="score">{{entry.score}} ⭐</div>
+                            <div class="time">⏱️ {{game.formatLeaderboardTime(entry.time)}}</div>
+                            <div class="moves">🎯 {{entry.moves}} moves</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="leaderboard-actions">
+                    <button ng-click="game.clearLeaderboard()" class="clear-btn" 
+                            ng-confirm="Are you sure you want to clear all scores?">
+                        🗑️ Clear All Scores
+                    </button>
                 </div>
             </div>
         </div>

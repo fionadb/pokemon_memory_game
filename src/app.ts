@@ -24,6 +24,17 @@ interface Player {
     score: number;
     streak: number;
     powerUps: number;
+    name?: string;
+}
+
+interface LeaderboardEntry {
+    name: string;
+    time: number;
+    moves: number;
+    score: number;
+    gridSize: number;
+    date: string;
+    difficulty: string;
 }
 
 class GameController {
@@ -48,8 +59,13 @@ class GameController {
     public messageTimeout: any;
     public perfectGameBonus: boolean = false;
     public speedBonus: boolean = false;
+    public currentLayout: any = { gap: '15px', borderRadius: '12px', animation: 'fadeIn' };
     private gameTimer: any;
     private audioContext: AudioContext | null = null;
+    public showNameInput: boolean = false;
+    public tempPlayerNames: string[] = [];
+    public leaderboard: LeaderboardEntry[] = [];
+    public showLeaderboard: boolean = false;
 
     private funnyMessages = {
         match: [
@@ -104,6 +120,7 @@ class GameController {
 
     constructor(private $scope: ng.IScope, private $timeout: ng.ITimeoutService) {
         this.initializeAudio();
+        this.loadLeaderboard();
         this.initializePlayers();
         this.resetGame();
     }
@@ -136,7 +153,6 @@ class GameController {
     }
 
     private playMatchSound(): void {
-        // Enhanced match sound with harmony
         this.playSound(523, 0.1);
         this.playSound(659, 0.1);
         setTimeout(() => this.playSound(659, 0.1), 100);
@@ -145,7 +161,6 @@ class GameController {
     }
 
     private playStreakSound(): void {
-        // Special streak sound
         const notes = [440, 523, 659, 784, 880];
         notes.forEach((note, index) => {
             setTimeout(() => this.playSound(note, 0.1, 'triangle'), index * 50);
@@ -158,7 +173,6 @@ class GameController {
     }
 
     private playVictorySound(): void {
-        // Epic victory fanfare
         const melody = [523, 659, 784, 1047, 1319, 1047, 784, 1047];
         melody.forEach((note, index) => {
             setTimeout(() => this.playSound(note, 0.3), index * 150);
@@ -166,7 +180,6 @@ class GameController {
     }
 
     private playPowerUpSound(): void {
-        // Rising power-up sound
         for (let i = 0; i < 8; i++) {
             setTimeout(() => this.playSound(400 + (i * 100), 0.1, 'triangle'), i * 50);
         }
@@ -214,7 +227,6 @@ class GameController {
     }
 
     private addPowerUpCard(): void {
-        // Add power-up card randomly (10% chance per pair)
         if (Math.random() < 0.1 && this.cards.length > 4) {
             const randomIndex = Math.floor(Math.random() * this.cards.length);
             if (!this.cards[randomIndex].isPowerUp) {
@@ -228,7 +240,6 @@ class GameController {
         this.playPowerUpSound();
         this.showMessage(this.getRandomMessage('powerUp'));
         
-        // Briefly reveal all cards
         this.cards.forEach(card => {
             if (!card.isMatched && !card.isFlipped) {
                 card.isFlipped = true;
@@ -246,9 +257,15 @@ class GameController {
     }
 
     private initializePlayers(): void {
+        const hadNames = this.players.length > 0 && this.players[0].name;
         this.players = [];
         for (let i = 0; i < this.playerCount; i++) {
-            this.players.push({ score: 0, streak: 0, powerUps: 0 });
+            this.players.push({ 
+                score: 0, 
+                streak: 0, 
+                powerUps: 0,
+                name: hadNames ? this.players[i]?.name || `Player ${i + 1}` : `Player ${i + 1}`
+            });
         }
         this.currentPlayer = 0;
     }
@@ -263,9 +280,16 @@ class GameController {
         this.showFireworks = false;
         this.comboCount = 0;
         this.streakCount = 0;
+        this.showCombo = false;
+        this.showStreak = false;
         this.currentMessage = '';
         this.perfectGameBonus = false;
         this.speedBonus = false;
+
+        if (this.messageTimeout) {
+            this.$timeout.cancel(this.messageTimeout);
+            this.messageTimeout = null;
+        }
 
         this.initializePlayers();
 
@@ -273,14 +297,45 @@ class GameController {
             await this.loadPokemonCards();
             this.shuffleCards();
             this.addPowerUpCard();
+            this.generateRandomLayout();
             this.startTimer();
-            this.showMessage("🎮 Game started! Find matching Pokemon pairs! 🎮");
+            
+            this.$timeout(() => {
+                this.showMessage("🎮 Game started! Find matching Pokemon pairs! 🎮");
+            }, 500);
         } catch (error) {
             console.error('Error loading Pokemon cards:', error);
         } finally {
             this.loading = false;
             this.$scope.$apply();
         }
+    }
+
+    private generateRandomLayout(): void {
+        const layouts = [
+            { gap: '10px', borderRadius: '8px', animation: 'slideIn' },
+            { gap: '15px', borderRadius: '12px', animation: 'fadeIn' },
+            { gap: '20px', borderRadius: '15px', animation: 'zoomIn' },
+            { gap: '12px', borderRadius: '10px', animation: 'rotateIn' }
+        ];
+        
+        const selectedLayout = layouts[Math.floor(Math.random() * layouts.length)];
+        this.currentLayout = selectedLayout;
+        
+        this.$timeout(() => {
+            const gameBoard = document.querySelector('.game-board') as HTMLElement;
+            if (gameBoard) {
+                gameBoard.style.gap = selectedLayout.gap;
+                gameBoard.style.animationName = selectedLayout.animation;
+                gameBoard.style.animationDuration = '0.8s';
+                gameBoard.style.animationTimingFunction = 'ease-out';
+                
+                const cards = document.querySelectorAll('.card');
+                cards.forEach((card) => {
+                    (card as HTMLElement).style.borderRadius = selectedLayout.borderRadius;
+                });
+            }
+        }, 100);
     }
 
     private async loadPokemonCards(): Promise<void> {
@@ -324,7 +379,6 @@ class GameController {
         try {
             const response = await axios.get(`https://pokeapi.co/api/v2/pokemon/${id}`);
             
-            // Get artwork URL with better fallback handling
             const artworkUrl = response.data.sprites.other?.['official-artwork']?.front_default;
             const spriteUrl = response.data.sprites.front_default;
             
@@ -338,7 +392,6 @@ class GameController {
             };
         } catch (error) {
             console.error(`Error fetching Pokemon ${id}:`, error);
-            // Return a fallback Pokemon with working image URLs
             return {
                 id: id,
                 name: `Pokemon ${id}`,
@@ -363,7 +416,6 @@ class GameController {
             return;
         }
 
-        // Check for power-up activation
         if (card.isPowerUp && !card.isMatched) {
             this.activatePowerUp();
             card.isPowerUp = false;
@@ -398,7 +450,6 @@ class GameController {
             this.playMatchSound();
             this.showMatchEffect(index1, index2);
 
-            // Enhanced messages based on performance
             let matchMessage = this.getRandomMessage('match');
             if (this.streakCount >= 3) {
                 this.playStreakSound();
@@ -420,21 +471,35 @@ class GameController {
                 }, 2000);
             }
 
-            // Check for game completion
             if (this.cards.every(card => card.isMatched)) {
-                this.gameWon = true;
-                this.stopTimer();
-                this.calculateBonuses();
-                this.showFireworks = true;
-                this.playVictorySound();
-
+                this.clearAllMessages();
+                
                 this.$timeout(() => {
-                    this.showFireworks = false;
-                    this.$scope.$apply();
-                }, 5000);
+                    this.gameWon = true;
+                    this.stopTimer();
+                    this.calculateBonuses();
+                    
+                    // Add to leaderboard
+                    if (this.playerCount === 1) {
+                        this.addToLeaderboard(this.players[0].name || 'Anonymous', this.players[0].score);
+                    } else {
+                        // For multiplayer, add winner to leaderboard
+                        const winner = this.players[0].score > this.players[1].score ? this.players[0] : this.players[1];
+                        if (this.players[0].score !== this.players[1].score) {
+                            this.addToLeaderboard(winner.name || 'Anonymous', winner.score);
+                        }
+                    }
+                    
+                    this.showFireworks = true;
+                    this.playVictorySound();
+
+                    this.$timeout(() => {
+                        this.showFireworks = false;
+                        this.$scope.$apply();
+                    }, 5000);
+                }, 800);
             }
         } else {
-            // Reset streaks on mismatch
             this.players[this.currentPlayer].streak = 0;
             this.comboCount = 0;
             this.streakCount = 0;
@@ -458,6 +523,19 @@ class GameController {
         }
 
         this.flippedCards = [];
+        this.$scope.$apply();
+    }
+
+    private clearAllMessages(): void {
+        this.currentMessage = '';
+        this.showCombo = false;
+        this.showStreak = false;
+        
+        if (this.messageTimeout) {
+            this.$timeout.cancel(this.messageTimeout);
+            this.messageTimeout = null;
+        }
+        
         this.$scope.$apply();
     }
 
@@ -497,7 +575,6 @@ class GameController {
 
     public getCardImage(card: Card): string {
         if (card.isFlipped) {
-            // Use artwork if available, fallback to sprite, then to a default image
             return card.pokemon.artwork || card.pokemon.sprite || `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${card.pokemon.id}.png`;
         }
         return 'assets/pokeball.svg';
@@ -505,11 +582,9 @@ class GameController {
 
     public handleImageError(event: any, card: Card): void {
         console.warn(`Image failed to load for ${card.pokemon.name}, using fallback`);
-        // Fallback to sprite if artwork fails
         if (event.target.src === card.pokemon.artwork) {
             event.target.src = card.pokemon.sprite;
         } else {
-            // If sprite also fails, use direct GitHub URL
             event.target.src = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${card.pokemon.id}.png`;
         }
     }
@@ -562,11 +637,125 @@ class GameController {
         if (this.streakCount >= 3) return `⚡ ${this.streakCount}x STREAK! ⚡`;
         return '';
     }
+
+    private loadLeaderboard(): void {
+        const saved = localStorage.getItem('pokemonMemoryLeaderboard');
+        if (saved) {
+            try {
+                this.leaderboard = JSON.parse(saved);
+            } catch (e) {
+                this.leaderboard = [];
+            }
+        }
+    }
+
+    private saveLeaderboard(): void {
+        localStorage.setItem('pokemonMemoryLeaderboard', JSON.stringify(this.leaderboard));
+    }
+
+    private addToLeaderboard(playerName: string, playerScore: number): void {
+        const difficulty = this.getDifficultyName();
+        const entry: LeaderboardEntry = {
+            name: playerName,
+            time: this.elapsedTime,
+            moves: this.moves,
+            score: playerScore,
+            gridSize: this.gridSize,
+            date: new Date().toLocaleDateString(),
+            difficulty: difficulty
+        };
+
+        this.leaderboard.push(entry);
+        this.leaderboard.sort((a, b) => {
+            if (a.gridSize !== b.gridSize) return a.gridSize - b.gridSize;
+            if (a.score !== b.score) return b.score - a.score;
+            if (a.time !== b.time) return a.time - b.time;
+            return a.moves - b.moves;
+        });
+
+        // Keep only top 10 per difficulty
+        const maxEntries = 10;
+        const difficultyEntries = this.leaderboard.filter(entry => entry.gridSize === this.gridSize);
+        if (difficultyEntries.length > maxEntries) {
+            const toRemove = difficultyEntries.slice(maxEntries);
+            toRemove.forEach(entry => {
+                const index = this.leaderboard.indexOf(entry);
+                if (index > -1) this.leaderboard.splice(index, 1);
+            });
+        }
+
+        this.saveLeaderboard();
+    }
+
+    private getDifficultyName(): string {
+        switch (this.gridSize) {
+            case 4: return 'Easy';
+            case 6: return 'Medium';
+            case 8: return 'Hard';
+            default: return 'Custom';
+        }
+    }
+
+    public showPlayerNameInput(): void {
+        this.tempPlayerNames = [];
+        for (let i = 0; i < this.playerCount; i++) {
+            this.tempPlayerNames.push('');
+        }
+        this.showNameInput = true;
+    }
+
+    public confirmPlayerNames(): void {
+        for (let i = 0; i < this.playerCount; i++) {
+            this.players[i].name = this.tempPlayerNames[i] || `Player ${i + 1}`;
+        }
+        this.showNameInput = false;
+        this.resetGame();
+    }
+
+    public cancelNameInput(): void {
+        this.showNameInput = false;
+    }
+
+    public toggleLeaderboard(): void {
+        this.showLeaderboard = !this.showLeaderboard;
+    }
+
+    public getLeaderboardForCurrentDifficulty(): LeaderboardEntry[] {
+        return this.leaderboard
+            .filter(entry => entry.gridSize === this.gridSize)
+            .slice(0, 10);
+    }
+
+    public getAllLeaderboard(): LeaderboardEntry[] {
+        return this.leaderboard.slice(0, 20);
+    }
+
+    public clearLeaderboard(): void {
+        this.leaderboard = [];
+        this.saveLeaderboard();
+    }
+
+    public getPlayerDisplayName(index: number): string {
+        return this.players[index]?.name || `Player ${index + 1}`;
+    }
+
+    public formatLeaderboardTime(seconds: number): string {
+        const minutes = Math.floor(seconds / 60);
+        const remainingSeconds = seconds % 60;
+        return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+    }
+
+    // Override the existing method to include name selection
+    public onPlayerCountChange(): void {
+        this.showPlayerNameInput();
+    }
+
+    public onGridSizeChange(): void {
+        this.resetGame();
+    }
 }
 
-// AngularJS module and controller registration
 angular.module('pokemonMemoryGame', [])
     .controller('GameController', ['$scope', '$timeout', GameController]);
 
-// Ensure the module is available globally
 (window as any).angular = angular;
